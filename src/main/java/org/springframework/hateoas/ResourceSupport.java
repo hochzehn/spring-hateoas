@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2015 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.springframework.hateoas;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.xml.bind.annotation.XmlElement;
 
@@ -30,20 +32,21 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Base class for DTOs to collect links.
  * 
  * @author Oliver Gierke
+ * @author Johhny Lim
  */
 public class ResourceSupport implements Identifiable<Link> {
 
 	private final List<Link> links;
 
 	public ResourceSupport() {
-		this.links = new ArrayList<Link>();
+		this.links = new ArrayList<>();
 	}
 
 	/**
 	 * Returns the {@link Link} with a rel of {@link Link#REL_SELF}.
 	 */
 	@JsonIgnore
-	public Link getId() {
+	public Optional<Link> getId() {
 		return getLink(Link.REL_SELF);
 	}
 
@@ -64,9 +67,7 @@ public class ResourceSupport implements Identifiable<Link> {
 	 */
 	public void add(Iterable<Link> links) {
 		Assert.notNull(links, "Given links must not be null!");
-		for (Link candidate : links) {
-			add(candidate);
-		}
+		links.forEach(this::add);
 	}
 
 	/**
@@ -95,7 +96,7 @@ public class ResourceSupport implements Identifiable<Link> {
 	 * @return
 	 */
 	public boolean hasLink(String rel) {
-		return getLink(rel) != null;
+		return getLink(rel).isPresent();
 	}
 
 	/**
@@ -120,17 +121,38 @@ public class ResourceSupport implements Identifiable<Link> {
 	 * Returns the link with the given rel.
 	 * 
 	 * @param rel
-	 * @return the link with the given rel or {@literal null} if none found.
+	 * @return the link with the given rel or {@link Optional#empty()} if none found.
 	 */
-	public Link getLink(String rel) {
+	public Optional<Link> getLink(String rel) {
 
-		for (Link link : links) {
-			if (link.getRel().equals(rel)) {
-				return link;
-			}
-		}
+		return links.stream() //
+				.filter(link -> link.hasRel(rel)) //
+				.findFirst();
+	}
 
-		return null;
+	/**
+	 * Returns the link with the given rel.
+	 * 
+	 * @param rel
+	 * @return the link with the given rel.
+	 * @throws IllegalArgumentException in case no link with the given rel can be found.
+	 */
+	public Link getRequiredLink(String rel) {
+
+		return getLink(rel) //
+				.orElseThrow(() -> new IllegalArgumentException(String.format("No link with rel %s found!", rel)));
+	}
+
+	/**
+	 * Returns all {@link Link}s with the given relation type.
+	 *
+	 * @return the links in a {@link List}
+	 */
+	public List<Link> getLinks(String rel) {
+
+		return links.stream() //
+				.filter(link -> link.hasRel(rel)) //
+				.collect(Collectors.toList());
 	}
 
 	/* 

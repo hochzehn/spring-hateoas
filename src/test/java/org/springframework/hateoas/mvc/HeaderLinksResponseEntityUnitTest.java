@@ -15,12 +15,10 @@
  */
 package org.springframework.hateoas.mvc;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;
 
-import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Resource;
@@ -38,8 +36,8 @@ public class HeaderLinksResponseEntityUnitTest {
 	static final Object CONTENT = new Object();
 	static final Link LINK = new Link("href", "rel");
 
-	Resource<Object> resource = new Resource<Object>(CONTENT, LINK);
-	ResponseEntity<Resource<Object>> entity = new ResponseEntity<Resource<Object>>(resource, HttpStatus.OK);
+	Resource<Object> resource = new Resource<>(CONTENT, LINK);
+	ResponseEntity<Resource<Object>> entity = new ResponseEntity<>(resource, HttpStatus.OK);
 
 	@Test
 	public void movesRootResourceLinksToHeader() {
@@ -47,22 +45,22 @@ public class HeaderLinksResponseEntityUnitTest {
 		HttpEntity<Resource<Object>> wrapper = HeaderLinksResponseEntity.wrap(entity);
 
 		// No links in resource anymore
-		assertThat(wrapper.getBody().getLinks(), is(Matchers.<Link> empty()));
+		assertThat(wrapper.getBody().getLinks()).isEmpty();
 
 		// Link found in header
 		List<String> linkHeader = wrapper.getHeaders().get("Link");
-		assertThat(linkHeader, hasSize(1));
+		assertThat(linkHeader).hasSize(1);
 
 		Link link = Link.valueOf(linkHeader.get(0));
-		assertThat(link, is(LINK));
+		assertThat(link).isEqualTo(LINK);
 	}
 
 	@Test
 	public void defaultStatusCodeToOkForHttpEntities() {
 
-		HttpEntity<Resource<Object>> entity = new HttpEntity<Resource<Object>>(resource);
+		HttpEntity<Resource<Object>> entity = new HttpEntity<>(resource);
 		ResponseEntity<Resource<Object>> wrappedEntity = HeaderLinksResponseEntity.wrap(entity);
 
-		assertThat(wrappedEntity.getStatusCode(), is(HttpStatus.OK));
+		assertThat(wrappedEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
 	}
 }

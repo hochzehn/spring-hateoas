@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 the original author or authors.
+ * Copyright 2014-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 package org.springframework.hateoas.alps;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 import static org.springframework.hateoas.alps.Alps.*;
 
 import java.io.IOException;
@@ -36,6 +35,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
  * Unit tests for serialization of ALPS documents.
  * 
  * @author Oliver Gierke
+ * @author Greg Turnquist
  */
 public class JacksonSerializationTest {
 
@@ -57,20 +57,20 @@ public class JacksonSerializationTest {
 
 		Alps alps = alps().//
 				doc(doc().href("http://example.org/samples/full/doc.html").build()). //
-				descriptors(Arrays.asList(//
+				descriptor(Arrays.asList(//
 						descriptor().id("search").type(Type.SAFE).//
 								doc(new Doc("A search form with two inputs.", Format.TEXT)).//
-								descriptors(Arrays.asList( //
+								descriptor(Arrays.asList( //
 										descriptor().href("#resultType").build(), //
 										descriptor().id("value").name("search").type(Type.SEMANTIC).build())//
 								).build(), //
 						descriptor().id("resultType").type(Type.SEMANTIC).//
 								doc(doc().value("results format").build()).//
-								ext(ext().href("http://alps.io/ext/range").value("summary,detail").build()//
+								ext(ext().id("#ext-range").href("http://alps.io/ext/range").value("summary,detail").build()//
 								).build())//
 				).build();
 
-		assertThat(mapper.writeValueAsString(alps), is(read(new ClassPathResource("reference.json", getClass()))));
+		assertThat(mapper.writeValueAsString(alps)).isEqualTo(read(new ClassPathResource("reference.json", getClass())));
 	}
 
 	private static String read(Resource resource) throws IOException {
@@ -87,7 +87,7 @@ public class JacksonSerializationTest {
 				builder.append(scanner.nextLine());
 
 				if (scanner.hasNextLine()) {
-					builder.append("\n");
+					builder.append(System.getProperty("line.separator"));
 				}
 			}
 

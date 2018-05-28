@@ -15,10 +15,7 @@
  */
 package org.springframework.hateoas.config;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
-
-import javax.ws.rs.Path;
+import static org.assertj.core.api.Assertions.*;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,35 +46,23 @@ public class EnableEntityLinksIntegrationTest {
 		public SampleController controller() {
 			return new SampleController();
 		}
-
-		@Bean
-		public SampleResource resource() {
-			return new SampleResource();
-		}
 	}
 
-	@Autowired
-	DelegatingEntityLinks builder;
+	@Autowired DelegatingEntityLinks builder;
 
 	@Test
 	public void initializesDelegatingEntityLinks() {
 
-		assertThat(builder, is(notNullValue()));
-		assertThat(builder.supports(Person.class), is(true));
-		assertThat(builder.supports(Address.class), is(true));
-		assertThat(builder.supports(Object.class), is(false));
+		assertThat(builder).isNotNull();
+		assertThat(builder.supports(Person.class)).isTrue();
+		assertThat(builder.supports(Address.class)).isFalse();
+		assertThat(builder.supports(Object.class)).isFalse();
 	}
 
 	@Controller
 	@ExposesResourceFor(Person.class)
 	@RequestMapping("/person")
 	static class SampleController {
-
-	}
-
-	@Path("/address")
-	@ExposesResourceFor(Address.class)
-	static class SampleResource {
 
 	}
 

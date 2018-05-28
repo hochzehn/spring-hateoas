@@ -15,8 +15,7 @@
  */
 package org.springframework.hateoas;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Collections;
 import java.util.Set;
@@ -30,44 +29,44 @@ import org.junit.Test;
  */
 public class ResourcesUnitTest {
 
-	Set<Resource<String>> foo = Collections.singleton(new Resource<String>("foo"));
-	Set<Resource<String>> bar = Collections.singleton(new Resource<String>("bar"));
+	Set<Resource<String>> foo = Collections.singleton(new Resource<>("foo"));
+	Set<Resource<String>> bar = Collections.singleton(new Resource<>("bar"));
 
 	@Test
 	public void equalsForSelfReference() {
 
-		Resources<Resource<String>> resource = new Resources<Resource<String>>(foo);
-		assertThat(resource, is(resource));
+		Resources<Resource<String>> resource = new Resources<>(foo);
+		assertThat(resource).isEqualTo(resource);
 	}
 
 	@Test
 	public void equalsWithEqualContent() {
 
-		Resources<Resource<String>> left = new Resources<Resource<String>>(foo);
-		Resources<Resource<String>> right = new Resources<Resource<String>>(foo);
+		Resources<Resource<String>> left = new Resources<>(foo);
+		Resources<Resource<String>> right = new Resources<>(foo);
 
-		assertThat(left, is(right));
-		assertThat(right, is(left));
+		assertThat(left).isEqualTo(right);
+		assertThat(right).isEqualTo(left);
 	}
 
 	@Test
 	public void notEqualForDifferentContent() {
 
-		Resources<Resource<String>> left = new Resources<Resource<String>>(foo);
-		Resources<Resource<String>> right = new Resources<Resource<String>>(bar);
+		Resources<Resource<String>> left = new Resources<>(foo);
+		Resources<Resource<String>> right = new Resources<>(bar);
 
-		assertThat(left, is(not(right)));
-		assertThat(right, is(not(left)));
+		assertThat(left).isNotEqualTo(right);
+		assertThat(right).isNotEqualTo(left);
 	}
 
 	@Test
 	public void notEqualForDifferentLinks() {
 
-		Resources<Resource<String>> left = new Resources<Resource<String>>(foo);
-		Resources<Resource<String>> right = new Resources<Resource<String>>(bar);
+		Resources<Resource<String>> left = new Resources<>(foo);
+		Resources<Resource<String>> right = new Resources<>(bar);
 		right.add(new Link("localhost"));
 
-		assertThat(left, is(not(right)));
-		assertThat(right, is(not(left)));
+		assertThat(left).isNotEqualTo(right);
+		assertThat(right).isNotEqualTo(left);
 	}
 }

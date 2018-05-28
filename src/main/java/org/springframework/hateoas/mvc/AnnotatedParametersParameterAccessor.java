@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,14 @@
  */
 package org.springframework.hateoas.mvc;
 
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.ConversionService;
@@ -27,6 +32,8 @@ import org.springframework.hateoas.core.AnnotationAttribute;
 import org.springframework.hateoas.core.DummyInvocationUtils.MethodInvocation;
 import org.springframework.hateoas.core.MethodParameters;
 import org.springframework.util.Assert;
+import org.springframework.util.ConcurrentReferenceHashMap;
+import org.springframework.util.ConcurrentReferenceHashMap.ReferenceType;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriTemplate;
 
@@ -35,20 +42,13 @@ import org.springframework.web.util.UriTemplate;
  * 
  * @author Oliver Gierke
  */
+@RequiredArgsConstructor
 class AnnotatedParametersParameterAccessor {
 
-	private final AnnotationAttribute attribute;
+	private static final Map<Method, MethodParameters> METHOD_PARAMETERS_CACHE = new ConcurrentReferenceHashMap<>(
+			16, ReferenceType.WEAK);
 
-	/**
-	 * Creates a new {@link AnnotatedParametersParameterAccessor} using the given {@link AnnotationAttribute}.
-	 * 
-	 * @param attribute must not be {@literal null}.
-	 */
-	public AnnotatedParametersParameterAccessor(AnnotationAttribute attribute) {
-
-		Assert.notNull(attribute);
-		this.attribute = attribute;
-	}
+	private final @NonNull AnnotationAttribute attribute;
 
 	/**
 	 * Returns {@link BoundMethodParameter}s contained in the given {@link MethodInvocation}.
@@ -60,9 +60,9 @@ class AnnotatedParametersParameterAccessor {
 
 		Assert.notNull(invocation, "MethodInvocation must not be null!");
 
-		MethodParameters parameters = new MethodParameters(invocation.getMethod());
+		MethodParameters parameters = getOrCreateMethodParametersFor(invocation.getMethod());
 		Object[] arguments = invocation.getArguments();
-		List<BoundMethodParameter> result = new ArrayList<BoundMethodParameter>();
+		List<BoundMethodParameter> result = new ArrayList<>();
 
 		for (MethodParameter parameter : parameters.getParametersWith(attribute.getAnnotationType())) {
 
@@ -70,7 +70,7 @@ class AnnotatedParametersParameterAccessor {
 			Object verifiedValue = verifyParameterValue(parameter, value);
 
 			if (verifiedValue != null) {
-				result.add(new BoundMethodParameter(parameter, value, attribute));
+				result.add(createParameter(parameter, verifiedValue, attribute));
 			}
 		}
 
@@ -78,7 +78,21 @@ class AnnotatedParametersParameterAccessor {
 	}
 
 	/**
-	 * Callback to verifiy the parameter values given for a dummy invocation. Default implementation rejects
+	 * Create the {@link BoundMethodParameter} for the given {@link MethodParameter}, parameter value and
+	 * {@link AnnotationAttribute}.
+	 * 
+	 * @param parameter must not be {@literal null}.
+	 * @param value can be {@literal null}.
+	 * @param attribute must not be {@literal null}.
+	 * @return
+	 */
+	protected BoundMethodParameter createParameter(MethodParameter parameter, Object value,
+			AnnotationAttribute attribute) {
+		return new BoundMethodParameter(parameter, value, attribute);
+	}
+
+	/**
+	 * Callback to verify the parameter values given for a dummy invocation. Default implementation rejects
 	 * {@literal null} values as they indicate an invalid dummy call.
 	 * 
 	 * @param parameter will never be {@literal null}.
@@ -86,18 +100,17 @@ class AnnotatedParametersParameterAccessor {
 	 * @return the verified value.
 	 */
 	protected Object verifyParameterValue(MethodParameter parameter, Object value) {
-
-		if (value == null) {
-
-			Object indexOrName = StringUtils.hasText(parameter.getParameterName()) ? parameter.getParameterName() : parameter
-					.getParameterIndex();
-
-			throw new IllegalArgumentException(String.format(
-					"Required controller parameter %s of method %s found but null value given!", indexOrName,
-					parameter.getMethod()));
-		}
-
 		return value;
+	}
+
+	/**
+	 * Returns the {@link MethodParameters} for the given {@link Method}.
+	 * 
+	 * @param method
+	 * @return
+	 */
+	private static MethodParameters getOrCreateMethodParametersFor(Method method) {
+		return METHOD_PARAMETERS_CACHE.computeIfAbsent(method, MethodParameters::new);
 	}
 
 	/**
@@ -113,14 +126,14 @@ class AnnotatedParametersParameterAccessor {
 		private final MethodParameter parameter;
 		private final Object value;
 		private final AnnotationAttribute attribute;
-		private final TypeDescriptor parameterTypeDecsriptor;
+		private final TypeDescriptor parameterTypeDescriptor;
 
 		/**
 		 * Creates a new {@link BoundMethodParameter}
 		 * 
-		 * @param parameter
-		 * @param value
-		 * @param attribute
+		 * @param parameter must not be {@literal null}.
+		 * @param value can be {@literal null}.
+		 * @param attribute can be {@literal null}.
 		 */
 		public BoundMethodParameter(MethodParameter parameter, Object value, AnnotationAttribute attribute) {
 
@@ -129,7 +142,7 @@ class AnnotatedParametersParameterAccessor {
 			this.parameter = parameter;
 			this.value = value;
 			this.attribute = attribute;
-			this.parameterTypeDecsriptor = TypeDescriptor.nested(parameter, 0);
+			this.parameterTypeDescriptor = TypeDescriptor.nested(parameter, parameter.isOptional() ? 1 : 0);
 		}
 
 		/**
@@ -146,6 +159,7 @@ class AnnotatedParametersParameterAccessor {
 
 			Annotation annotation = parameter.getParameterAnnotation(attribute.getAnnotationType());
 			String annotationAttributeValue = attribute.getValueFrom(annotation);
+
 			return StringUtils.hasText(annotationAttributeValue) ? annotationAttributeValue : parameter.getParameterName();
 		}
 
@@ -165,11 +179,18 @@ class AnnotatedParametersParameterAccessor {
 		 */
 		public String asString() {
 
-			if (value == null) {
-				return null;
-			}
+			return value == null //
+					? null //
+					: (String) CONVERSION_SERVICE.convert(value, parameterTypeDescriptor, STRING_DESCRIPTOR);
+		}
 
-			return (String) CONVERSION_SERVICE.convert(value, parameterTypeDecsriptor, STRING_DESCRIPTOR);
+		/**
+		 * Returns whether the given parameter is a required one. Defaults to {@literal true}.
+		 * 
+		 * @return
+		 */
+		public boolean isRequired() {
+			return true;
 		}
 	}
 }

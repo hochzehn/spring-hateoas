@@ -18,6 +18,7 @@ package org.springframework.hateoas;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Optional;
 
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -89,7 +90,7 @@ public class PagedResources<T> extends Resources<T> {
 	@SuppressWarnings("unchecked")
 	public static <T extends Resource<S>, S> PagedResources<T> wrap(Iterable<S> content, PageMetadata metadata) {
 
-		Assert.notNull(content);
+		Assert.notNull(content, "Content must not be null!");
 		ArrayList<T> resources = new ArrayList<T>();
 
 		for (S element : content) {
@@ -102,22 +103,20 @@ public class PagedResources<T> extends Resources<T> {
 	/**
 	 * Returns the Link pointing to the next page (if set).
 	 * 
-	 * @see #addPaginationLinks(Link)
 	 * @return
 	 */
 	@JsonIgnore
-	public Link getNextLink() {
+	public Optional<Link> getNextLink() {
 		return getLink(Link.REL_NEXT);
 	}
 
 	/**
 	 * Returns the Link pointing to the previous page (if set).
 	 * 
-	 * @see #addPaginationLinks(Link)
 	 * @return
 	 */
 	@JsonIgnore
-	public Link getPreviousLink() {
+	public Optional<Link> getPreviousLink() {
 		return getLink(Link.REL_PREVIOUS);
 	}
 
@@ -201,7 +200,7 @@ public class PagedResources<T> extends Resources<T> {
 		}
 
 		/**
-		 * Creates a new {@link PageMetadata} from the given size, numer and total elements.
+		 * Creates a new {@link PageMetadata} from the given size, number and total elements.
 		 * 
 		 * @param size the size of the page
 		 * @param number the number of the page
@@ -253,8 +252,8 @@ public class PagedResources<T> extends Resources<T> {
 		 */
 		@Override
 		public String toString() {
-			return String.format("Metadata { number: %d, total pages: %d, total elements: %d, size: %d }", number,
-					totalPages, totalElements, size);
+			return String.format("Metadata { number: %d, total pages: %d, total elements: %d, size: %d }", number, totalPages,
+					totalElements, size);
 		}
 
 		/* 

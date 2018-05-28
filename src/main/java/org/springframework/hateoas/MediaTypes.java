@@ -22,6 +22,8 @@ import org.springframework.http.MediaType;
  * 
  * @author Oliver Gierke
  * @author Przemek Nowak
+ * @author Drummond Dawson
+ * @author Greg Turnquist
  */
 public class MediaTypes {
 
@@ -34,4 +36,44 @@ public class MediaTypes {
 	 * Public constant media type for {@code application/hal+json}.
 	 */
 	public static final MediaType HAL_JSON = MediaType.valueOf(HAL_JSON_VALUE);
+
+	/**
+	 * A String equivalent of {@link MediaTypes#HAL_JSON_UTF8}.
+	 */
+	public static final String HAL_JSON_UTF8_VALUE = HAL_JSON_VALUE + ";charset=UTF-8";
+
+	/**
+	 * Public constant media type for {@code application/hal+json;charset=UTF-8}.
+	 */
+	public static final MediaType HAL_JSON_UTF8 = MediaType.valueOf(HAL_JSON_UTF8_VALUE);
+
+	/**
+	 * A String equivalent of {@link MediaTypes#ALPS_JSON}.
+	 */
+	public static final String ALPS_JSON_VALUE = "application/alps+json";
+
+	/**
+	 * Public constant media type for {@code application/alps+json}.
+	 */
+	public static final MediaType ALPS_JSON = MediaType.parseMediaType(ALPS_JSON_VALUE);
+
+	/**
+	 * Public constant media type for {@code application/prs.hal-forms+json}.
+	 */
+	public static final String HAL_FORMS_JSON_VALUE = "application/prs.hal-forms+json";
+
+	/**
+	 * Public constant media type for {@code applicatino/prs.hal-forms+json}.
+	 */
+	public static final MediaType HAL_FORMS_JSON = MediaType.parseMediaType(HAL_FORMS_JSON_VALUE);
+
+	/**
+	 * A String equivalent of {@link MediaTypes#COLLECTION_JSON}.
+	 */
+	public static final String COLLECTION_JSON_VALUE = "application/vnd.collection+json";
+
+	/**
+	 * Public constant media type for {@code application/vnd.collection+json}.
+	 */
+	public static final MediaType COLLECTION_JSON = MediaType.valueOf(COLLECTION_JSON_VALUE);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 package org.springframework.hateoas.core;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -38,9 +37,9 @@ public class MethodParametersUnitTest {
 		Method method = Sample.class.getMethod("method", String.class, String.class, Object.class);
 		MethodParameters parameters = new MethodParameters(method, new AnnotationAttribute(Qualifier.class));
 
-		assertThat(parameters.getParameter("param"), is(notNullValue()));
-		assertThat(parameters.getParameter("foo"), is(notNullValue()));
-		assertThat(parameters.getParameter("another"), is(nullValue()));
+		assertThat(parameters.getParameter("param")).isPresent();
+		assertThat(parameters.getParameter("foo")).isPresent();
+		assertThat(parameters.getParameter("another")).isNotPresent();
 	}
 
 	/**
@@ -53,8 +52,8 @@ public class MethodParametersUnitTest {
 		MethodParameters methodParameters = new MethodParameters(method);
 
 		List<MethodParameter> objectParameters = methodParameters.getParametersOfType(Object.class);
-		assertThat(objectParameters, hasSize(1));
-		assertThat(objectParameters.get(0).getParameterIndex(), is(2));
+		assertThat(objectParameters).hasSize(1);
+		assertThat(objectParameters.get(0).getParameterIndex()).isEqualTo(2);
 	}
 
 	static class Sample {

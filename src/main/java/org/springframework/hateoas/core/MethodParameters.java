@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,18 @@ package org.springframework.hateoas.core;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import org.springframework.beans.BeanUtils;
-import org.springframework.core.LocalVariableTableParameterNameDiscoverer;
+import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.core.annotation.SynthesizingMethodParameter;
 import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
+import org.springframework.util.ConcurrentReferenceHashMap;
 
 /**
  * Value object to represent {@link MethodParameters} to allow to easily find the ones with a given annotation.
@@ -34,22 +37,10 @@ import org.springframework.util.ClassUtils;
  */
 public class MethodParameters {
 
-	private static final String SPRING_4_DISCOVERER_NAME = "org.springframework.core.DefaultParameterNameDiscoverer";
-	private static ParameterNameDiscoverer DISCOVERER;
-
-	static {
-
-		ClassLoader classLoader = MethodParameters.class.getClassLoader();
-
-		try {
-			Class<?> discovererType = ClassUtils.forName(SPRING_4_DISCOVERER_NAME, classLoader);
-			DISCOVERER = (ParameterNameDiscoverer) BeanUtils.instantiate(discovererType);
-		} catch (ClassNotFoundException o_O) {
-			DISCOVERER = new LocalVariableTableParameterNameDiscoverer();
-		}
-	}
+	private static ParameterNameDiscoverer DISCOVERER = new DefaultParameterNameDiscoverer();
 
 	private final List<MethodParameter> parameters;
+	private final Map<Class<?>, List<MethodParameter>> parametersWithAnnotationCache = new ConcurrentReferenceHashMap<>();
 
 	/**
 	 * Creates a new {@link MethodParameters} from the given {@link Method}.
@@ -69,15 +60,12 @@ public class MethodParameters {
 	 */
 	public MethodParameters(Method method, AnnotationAttribute namingAnnotation) {
 
-		Assert.notNull(method);
-		this.parameters = new ArrayList<MethodParameter>();
+		Assert.notNull(method, "Method must not be null!");
 
-		for (int i = 0; i < method.getParameterTypes().length; i++) {
-
-			MethodParameter parameter = new AnnotationNamingMethodParameter(method, i, namingAnnotation);
-			parameter.initParameterNameDiscovery(DISCOVERER);
-			parameters.add(parameter);
-		}
+		this.parameters = IntStream.range(0, method.getParameterTypes().length) //
+				.mapToObj(it -> new AnnotationNamingMethodParameter(method, it, namingAnnotation)) //
+				.peek(it -> it.initParameterNameDiscovery(DISCOVERER)) //
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -95,17 +83,13 @@ public class MethodParameters {
 	 * @param name must not be {@literal null} or empty.
 	 * @return
 	 */
-	public MethodParameter getParameter(String name) {
+	public Optional<MethodParameter> getParameter(String name) {
 
 		Assert.hasText(name, "Parameter name must not be null!");
 
-		for (MethodParameter parameter : parameters) {
-			if (name.equals(parameter.getParameterName())) {
-				return parameter;
-			}
-		}
-
-		return null;
+		return getParameters().stream() //
+				.filter(it -> name.equals(it.getParameterName())) //
+				.findFirst();
 	}
 
 	/**
@@ -118,15 +102,10 @@ public class MethodParameters {
 	public List<MethodParameter> getParametersOfType(Class<?> type) {
 
 		Assert.notNull(type, "Type must not be null!");
-		List<MethodParameter> result = new ArrayList<MethodParameter>();
 
-		for (MethodParameter parameter : getParameters()) {
-			if (parameter.getParameterType().equals(type)) {
-				result.add(parameter);
-			}
-		}
-
-		return result;
+		return getParameters().stream() //
+				.filter(it -> it.getParameterType().equals(type)) //
+				.collect(Collectors.toList());
 	}
 
 	/**
@@ -137,16 +116,14 @@ public class MethodParameters {
 	 */
 	public List<MethodParameter> getParametersWith(Class<? extends Annotation> annotation) {
 
-		Assert.notNull(annotation);
-		List<MethodParameter> result = new ArrayList<MethodParameter>();
+		return parametersWithAnnotationCache.computeIfAbsent(annotation, key -> {
 
-		for (MethodParameter parameter : getParameters()) {
-			if (parameter.hasParameterAnnotation(annotation)) {
-				result.add(parameter);
-			}
-		}
+			Assert.notNull(annotation, "Annotation must not be null!");
 
-		return result;
+			return getParameters().stream()//
+					.filter(it -> it.hasParameterAnnotation(annotation))//
+					.collect(Collectors.toList());
+		});
 	}
 
 	/**
@@ -155,7 +132,7 @@ public class MethodParameters {
 	 * 
 	 * @author Oliver Gierke
 	 */
-	private static class AnnotationNamingMethodParameter extends MethodParameter {
+	private static class AnnotationNamingMethodParameter extends SynthesizingMethodParameter {
 
 		private final AnnotationAttribute attribute;
 		private String name;

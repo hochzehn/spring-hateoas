@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 package org.springframework.hateoas.hal;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import org.junit.Test;
+import org.springframework.hateoas.Link;
 import org.springframework.hateoas.LinkDiscoverer;
+import org.springframework.hateoas.MediaTypes;
 import org.springframework.hateoas.core.AbstractLinkDiscovererUnitTest;
 
 /**
@@ -39,7 +40,19 @@ public class HalLinkDiscovererUnitTest extends AbstractLinkDiscovererUnitTest {
 	 */
 	@Test
 	public void discoversFullyQualifiedRel() {
-		assertThat(getDiscoverer().findLinkWithRel("http://foo.com/bar", SAMPLE), is(notNullValue()));
+
+		Link link = getDiscoverer().findLinkWithRel("http://foo.com/bar", SAMPLE);
+
+		assertThat(link).isNotNull();
+		assertThat(link.getHref()).isEqualTo("fullRelHref");
+	}
+
+	/**
+	 * @see #470
+	 */
+	@Test
+	public void supportsHalUtf8() {
+		assertThat(getDiscoverer().supports(MediaTypes.HAL_JSON_UTF8)).isTrue();
 	}
 
 	@Override

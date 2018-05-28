@@ -15,12 +15,12 @@
  */
 package org.springframework.hateoas.core;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.lang.reflect.Method;
 
 import org.junit.Test;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * 
  * @author Oliver Gierke
  * @author Kevin Conaway
+ * @author Mark Paluch
  */
 public class AnnotationMappingDiscovererUnitTest {
 
@@ -40,32 +41,32 @@ public class AnnotationMappingDiscovererUnitTest {
 
 	@Test
 	public void discoversTypeLevelMapping() {
-		assertThat(discoverer.getMapping(MyController.class), is("/type"));
+		assertThat(discoverer.getMapping(MyController.class)).isEqualTo("/type");
 	}
 
 	@Test
 	public void discoversMethodLevelMapping() throws Exception {
 		Method method = MyController.class.getMethod("method");
-		assertThat(discoverer.getMapping(method), is("/type/method"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/type/method");
 	}
 
 	@Test
 	public void returnsNullForNonExistentTypeLevelMapping() {
-		assertThat(discoverer.getMapping(ControllerWithoutTypeLevelMapping.class), is(nullValue()));
+		assertThat(discoverer.getMapping(ControllerWithoutTypeLevelMapping.class)).isNull();
 	}
 
 	@Test
 	public void resolvesMethodLevelMappingWithoutTypeLevelMapping() throws Exception {
 
 		Method method = ControllerWithoutTypeLevelMapping.class.getMethod("method");
-		assertThat(discoverer.getMapping(method), is("/method"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/method");
 	}
 
 	@Test
 	public void resolvesMethodLevelMappingWithSlashRootMapping() throws Exception {
 
 		Method method = SlashRootMapping.class.getMethod("method");
-		assertThat(discoverer.getMapping(method), is("/method"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/method");
 	}
 
 	/**
@@ -75,7 +76,7 @@ public class AnnotationMappingDiscovererUnitTest {
 	public void treatsMissingMethodMappingAsEmptyMapping() throws Exception {
 
 		Method method = MyController.class.getMethod("noMethodMapping");
-		assertThat(discoverer.getMapping(method), is("/type"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/type");
 	}
 
 	/**
@@ -85,7 +86,7 @@ public class AnnotationMappingDiscovererUnitTest {
 	public void detectsClassMappingOnSuperType() throws Exception {
 
 		Method method = ChildController.class.getMethod("mapping");
-		assertThat(discoverer.getMapping(method), is("/parent/child"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/parent/child");
 	}
 
 	/**
@@ -95,7 +96,7 @@ public class AnnotationMappingDiscovererUnitTest {
 	public void includesTypeMappingFromChildClass() throws Exception {
 
 		Method method = ParentWithMethod.class.getMethod("mapping");
-		assertThat(discoverer.getMapping(ChildWithTypeMapping.class, method), is("/child/parent"));
+		assertThat(discoverer.getMapping(ChildWithTypeMapping.class, method)).isEqualTo("/child/parent");
 	}
 
 	/**
@@ -105,16 +106,16 @@ public class AnnotationMappingDiscovererUnitTest {
 	public void handlesSlashes() throws Exception {
 
 		Method method = ControllerWithoutSlashes.class.getMethod("noslash");
-		assertThat(discoverer.getMapping(method), is("slashes/noslash"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("slashes/noslash");
 
 		method = ControllerWithoutSlashes.class.getMethod("withslash");
-		assertThat(discoverer.getMapping(method), is("slashes/withslash"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("slashes/withslash");
 
 		method = ControllerWithTrailingSlashes.class.getMethod("noslash");
-		assertThat(discoverer.getMapping(method), is("trailing/noslash"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("trailing/noslash");
 
 		method = ControllerWithTrailingSlashes.class.getMethod("withslash");
-		assertThat(discoverer.getMapping(method), is("trailing/withslash"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("trailing/withslash");
 	}
 
 	/**
@@ -125,7 +126,7 @@ public class AnnotationMappingDiscovererUnitTest {
 
 		Method method = ControllerWithMultipleSlashes.class.getMethod("withslash");
 
-		assertThat(discoverer.getMapping(method), is("trailing/withslash"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("trailing/withslash");
 	}
 
 	/**
@@ -136,7 +137,17 @@ public class AnnotationMappingDiscovererUnitTest {
 
 		Method method = MultipleMappingsController.class.getMethod("method");
 
-		assertThat(discoverer.getMapping(method), is("/type/method"));
+		assertThat(discoverer.getMapping(method)).isEqualTo("/type/method");
+	}
+
+	/**
+	 * @see #471
+	 */
+	@Test
+	public void discoversMethodLevelMappingUsingComposedAnnotation() throws Exception {
+
+		Method method = MyController.class.getMethod("methodWithComposedAnnotation");
+		assertThat(discoverer.getMapping(method)).isEqualTo("/type/otherMethod");
 	}
 
 	@RequestMapping("/type")
@@ -144,6 +155,9 @@ public class AnnotationMappingDiscovererUnitTest {
 
 		@RequestMapping("/method")
 		void method();
+
+		@GetMapping("/otherMethod")
+		void methodWithComposedAnnotation();
 
 		@RequestMapping
 		void noMethodMapping();

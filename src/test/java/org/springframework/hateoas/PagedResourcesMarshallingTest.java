@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 package org.springframework.hateoas;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -58,32 +57,26 @@ public class PagedResourcesMarshallingTest {
 		marshaller = context.createMarshaller();
 		unmarshaller = context.createUnmarshaller();
 
-		pagedResources = new PagedResources<Inner>(new ArrayList<Inner>(), null);
+		pagedResources = new PagedResources<>(new ArrayList<>(), null);
 	}
 
 	/**
 	 * @see #98
 	 */
 	@Test
-	@SuppressWarnings("unchecked")
 	public void jaxbUnMarshalling() throws Exception {
 
-		PagedResources<Inner> actual = (PagedResources<Inner>) unmarshaller.unmarshal(new StringReader(xmlReference));
-		assertThat(actual, is(pagedResources));
+		assertThat(unmarshaller.unmarshal(new StringReader(xmlReference))).isEqualTo(pagedResources);
 	}
 
 	public static class Inner {}
 
 	private static String readFile(org.springframework.core.io.Resource resource) throws IOException {
 
-		FileInputStream stream = new FileInputStream(resource.getFile());
-
-		try {
+		try (FileInputStream stream = new FileInputStream(resource.getFile())) {
 			FileChannel fc = stream.getChannel();
 			MappedByteBuffer bb = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
 			return Charset.defaultCharset().decode(bb).toString();
-		} finally {
-			stream.close();
 		}
 	}
 }

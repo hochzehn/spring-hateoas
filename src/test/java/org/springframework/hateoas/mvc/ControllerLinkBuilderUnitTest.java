@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2016 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,24 @@
  */
 package org.springframework.hateoas.mvc;
 
-import static org.hamcrest.MatcherAssert.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.hateoas.mvc.ControllerLinkBuilder.*;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.Mockito;
 import org.springframework.hateoas.Identifiable;
 import org.springframework.hateoas.Link;
+import org.springframework.hateoas.TemplateVariable;
+import org.springframework.hateoas.TemplateVariable.VariableType;
 import org.springframework.hateoas.TestUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.util.MultiValueMap;
@@ -37,7 +40,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -50,6 +52,8 @@ import org.springframework.web.util.UriComponentsBuilder;
  * @author Oemer Yildiz
  * @author Greg Turnquist
  * @author Kevin Conaway
+ * @author Oliver Trosien
+ * @author Greg Turnquist
  */
 public class ControllerLinkBuilderUnitTest extends TestUtils {
 
@@ -59,16 +63,16 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void createsLinkToControllerRoot() {
 
 		Link link = linkTo(PersonControllerImpl.class).withSelfRel();
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), Matchers.endsWith("/people"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/people");
 	}
 
 	@Test
 	public void createsLinkToParameterizedControllerRoot() {
 
 		Link link = linkTo(PersonsAddressesController.class, 15).withSelfRel();
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), endsWith("/people/15/addresses"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/people/15/addresses");
 	}
 
 	/**
@@ -78,24 +82,24 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void createsLinkToMethodOnParameterizedControllerRoot() {
 
 		Link link = linkTo(methodOn(PersonsAddressesController.class, 15).getAddressesForCountry("DE")).withSelfRel();
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), endsWith("/people/15/addresses/DE"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/people/15/addresses/DE");
 	}
 
 	@Test
 	public void createsLinkToSubResource() {
 
 		Link link = linkTo(PersonControllerImpl.class).slash("something").withSelfRel();
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), endsWith("/people/something"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/people/something");
 	}
 
 	@Test
 	public void createsLinkWithCustomRel() {
 
 		Link link = linkTo(PersonControllerImpl.class).withRel(Link.REL_NEXT);
-		assertThat(link.getRel(), is(Link.REL_NEXT));
-		assertThat(link.getHref(), endsWith("/people"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_NEXT);
+		assertThat(link.getHref()).endsWith("/people");
 	}
 
 	/**
@@ -103,14 +107,14 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	 */
 	@Test
 	public void usesFirstMappingInCaseMultipleOnesAreDefined() {
-		assertThat(linkTo(InvalidController.class).withSelfRel().getHref(), endsWith("/persons"));
+		assertThat(linkTo(InvalidController.class).withSelfRel().getHref()).endsWith("/persons");
 	}
 
 	@Test
 	public void createsLinkToUnmappedController() {
 
 		Link link = linkTo(UnmappedController.class).withSelfRel();
-		assertThat(link.getHref(), is("http://localhost"));
+		assertThat(link.getHref()).isEqualTo("http://localhost");
 	}
 
 	@Test
@@ -118,20 +122,20 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void usesIdOfIdentifyableForPathSegment() {
 
 		Identifiable<Long> identifyable = Mockito.mock(Identifiable.class);
-		Mockito.when(identifyable.getId()).thenReturn(10L);
+		Mockito.when(identifyable.getId()).thenReturn(Optional.of(10L));
 
 		Link link = linkTo(PersonControllerImpl.class).slash(identifyable).withSelfRel();
-		assertThat(link.getHref(), endsWith("/people/10"));
+		assertThat(link.getHref()).endsWith("/people/10");
 	}
 
 	@Test
 	public void appendingNullIsANoOp() {
 
 		Link link = linkTo(PersonControllerImpl.class).slash(null).withSelfRel();
-		assertThat(link.getHref(), endsWith("/people"));
+		assertThat(link.getHref()).endsWith("/people");
 
 		link = linkTo(PersonControllerImpl.class).slash((Object) null).withSelfRel();
-		assertThat(link.getHref(), endsWith("/people"));
+		assertThat(link.getHref()).endsWith("/people");
 	}
 
 	@Test
@@ -139,7 +143,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).myMethod(null)).withSelfRel();
 		assertPointsToMockServer(link);
-		assertThat(link.getHref(), endsWith("/something/else"));
+		assertThat(link.getHref()).endsWith("/something/else");
 	}
 
 	@Test
@@ -147,7 +151,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithPathVariable("1")).withSelfRel();
 		assertPointsToMockServer(link);
-		assertThat(link.getHref(), endsWith("/something/1/foo"));
+		assertThat(link.getHref()).endsWith("/something/1/foo");
 	}
 
 	/**
@@ -208,7 +212,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 		Link link = linkTo(PersonController.class).slash("?foo=bar").withSelfRel();
 
 		UriComponents components = toComponents(link);
-		assertThat(components.getQuery(), is("foo=bar"));
+		assertThat(components.getQuery()).isEqualTo("foo=bar");
 	}
 
 	/**
@@ -220,7 +224,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodForNextPage("1", 10, 5)).withSelfRel();
 
 		UriComponents components = toComponents(link);
-		assertThat(components.getPath(), is("/something/1/foo"));
+		assertThat(components.getPath()).isEqualTo("/something/1/foo");
 
 		MultiValueMap<String, String> queryParams = components.getQueryParams();
 		assertThat(queryParams.get("limit"), contains("5"));
@@ -238,7 +242,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 						.withSelfRel();
 
 		UriComponents components = toComponents(link);
-		assertThat(components.getPath(), is("/something/1/foo"));
+		assertThat(components.getPath()).isEqualTo("/something/1/foo");
 
 		MultiValueMap<String, String> queryParams = components.getQueryParams();
 		assertThat(queryParams.get("limit"), contains("5"));
@@ -254,8 +258,8 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 		UriComponents components = linkTo(PersonController.class).slash("something?foo=bar").toUriComponentsBuilder()
 				.build();
 
-		assertThat(components.getPath(), is("/people/something"));
-		assertThat(components.getQuery(), is("foo=bar"));
+		assertThat(components.getPath()).isEqualTo("/people/something");
+		assertThat(components.getQuery()).isEqualTo("foo=bar");
 	}
 
 	/**
@@ -283,29 +287,42 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	}
 
 	/**
-	 * @see #122
+	 * @see #122, #169
 	 */
 	@Test
-	public void doesNotAppendParameterForNullRequestParameters() {
+	public void appendsOptionalParameterVariableForUnsetParameter() {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodForOptionalNextPage(null)).withSelfRel();
-		assertThat(link.getHref(), endsWith("/foo"));
+
+		assertThat(link.getVariables(), contains(new TemplateVariable("offset", VariableType.REQUEST_PARAM)));
+		assertThat(link.expand().getHref()).endsWith("/foo");
 	}
 
 	/**
-	 * @see #122
+	 * @see #122, #169
 	 */
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void rejectsMissingPathVariable() {
-		linkTo(methodOn(ControllerWithMethods.class).methodWithPathVariable(null));
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithPathVariable(null))//
+				.withSelfRel();
+
+		exception.expect(IllegalArgumentException.class);
+
+		link.expand();
 	}
 
 	/**
-	 * @see #122
+	 * @see #122, #169
 	 */
 	@Test(expected = IllegalArgumentException.class)
 	public void rejectsMissingRequiredRequestParam() {
-		linkTo(methodOn(ControllerWithMethods.class).methodWithRequestParam(null));
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithRequestParam(null)).withSelfRel();
+
+		assertThat(link.getVariableNames(), contains("id"));
+
+		link.expand();
 	}
 
 	/**
@@ -343,7 +360,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void discoversParentClassTypeMappingForInvocation() {
 
 		Link link = linkTo(methodOn(ChildController.class).myMethod()).withSelfRel();
-		assertThat(link.getHref(), endsWith("/parent/child"));
+		assertThat(link.getHref()).endsWith("/parent/child");
 	}
 
 	/**
@@ -353,7 +370,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void includesTypeMappingFromChildClass() {
 
 		Link link = linkTo(methodOn(ChildWithTypeMapping.class).myMethod()).withSelfRel();
-		assertThat(link.getHref(), endsWith("/child/parent"));
+		assertThat(link.getHref()).endsWith("/child/parent");
 	}
 
 	/**
@@ -363,8 +380,8 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void linksToMethodWithPathVariableContainingBlank() {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithPathVariable("with blank")).withSelfRel();
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), endsWith("/something/with%20blank/foo"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/something/with%20blank/foo");
 	}
 
 	/**
@@ -374,19 +391,19 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 	public void usesRootMappingOfTargetClassForMethodsOfParentClass() {
 
 		Link link = linkTo(methodOn(ChildControllerWithRootMapping.class).someEmptyMappedMethod()).withSelfRel();
-		assertThat(link.getHref(), endsWith("/root"));
+		assertThat(link.getHref()).endsWith("/root");
 	}
 
 	/**
 	 * @see #192
 	 */
 	@Test
-	public void usesRootMappingOfTargetClassForMethodsOfParen() throws Exception {
+	public void usesRootMappingOfTargetClassForMethodsOfParent() throws Exception {
 
 		Method method = ParentControllerWithoutRootMapping.class.getMethod("someEmptyMappedMethod");
 
 		Link link = linkTo(ChildControllerWithRootMapping.class, method).withSelfRel();
-		assertThat(link.getHref(), endsWith("/root"));
+		assertThat(link.getHref()).endsWith("/root");
 	}
 
 	/**
@@ -442,23 +459,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodForOptionalSizeWithDefaultValue(null)).withSelfRel();
 
-		assertThat(link.getHref(), endsWith("/bar"));
-	}
-
-	/**
-	 * @see #342
-	 */
-	@Test
-	public void mentionsRequiredUsageWithinWebRequestInException() {
-
-		exception.expect(IllegalStateException.class);
-		exception.expectMessage("request");
-		exception.expectMessage("Spring MVC");
-
-		RequestContextHolder.setRequestAttributes(null);
-
-		linkTo(methodOn(ControllerLinkBuilderUnitTest.PersonsAddressesController.class, 15).getAddressesForCountry("DE"))
-				.withSelfRel();
+		assertThat(link.getHref()).endsWith("/bar");
 	}
 
 	/**
@@ -469,12 +470,128 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 
 		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithRequestParam("Spring#\n")).withSelfRel();
 
-		assertThat(link.getRel(), is(Link.REL_SELF));
-		assertThat(link.getHref(), endsWith("/something/foo?id=Spring%23%0A"));
+		assertThat(link.getRel()).isEqualTo(Link.REL_SELF);
+		assertThat(link.getHref()).endsWith("/something/foo?id=Spring%23%0A");
+	}
+
+	/**
+	 * @see #169
+	 */
+	@Test
+	public void createsPartiallyExpandedLink() {
+
+		Link link = linkTo(methodOn(PersonsAddressesController.class, "some id").getAddressesForCountry(null))
+				.withSelfRel();
+
+		assertThat(link.isTemplated()).isTrue();
+		assertThat(link.getHref()).contains("some%20id");
+	}
+
+	/**
+	 * @see #169
+	 */
+	@Test
+	public void addsRequestParameterVariablesForMissingRequiredParameter() {
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodForNextPage("1", 10, null)).withSelfRel();
+
+		assertThat(link.getVariableNames(), contains("limit"));
+
+		exception.expect(IllegalArgumentException.class);
+		exception.expectMessage("limit");
+
+		link.expand();
+	}
+
+	/**
+	 * @see #169
+	 */
+	@Test
+	public void addsOptionalRequestParameterTemplateForMissingValue() {
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodForNextPage("1", null, 5)).withSelfRel();
+
+		assertThat(link.getVariables(), contains(new TemplateVariable("offset", VariableType.REQUEST_PARAM_CONTINUED)));
+
+		UriComponents components = toComponents(link);
+
+		assertThat(components.getQueryParams().get("query")).isNull();
+	}
+
+	/**
+	 * @see #509
+	 */
+	@Test
+	public void supportsTwoProxiesAddingXForwardedPort() {
+
+		request.addHeader("X-Forwarded-Port", "1443,8443");
+		request.addHeader("X-Forwarded-Host", "proxy1,proxy2");
+
+		assertThat(linkTo(PersonControllerImpl.class).withSelfRel().getHref(), startsWith("http://proxy1:1443"));
+	}
+
+	/**
+	 * @see #509
+	 */
+	@Test
+	public void resolvesAmbiguousXForwardedHeaders() {
+
+		request.addHeader("X-Forwarded-Proto", "http");
+		request.addHeader("X-Forwarded-Ssl", "on");
+
+		assertThat(linkTo(PersonControllerImpl.class).withSelfRel().getHref(), startsWith("http://"));
+	}
+
+	/**
+	 * @see #527
+	 */
+	@Test
+	public void createsLinkRelativeToContextRoot() {
+
+		request.setContextPath("/ctx");
+		request.setServletPath("/foo");
+		request.setRequestURI("/ctx/foo");
+
+		assertThat(linkTo(PersonControllerImpl.class).withSelfRel().getHref()).endsWith("/ctx/people");
+	}
+
+	/**
+	 * @see #639
+	 */
+	@Test
+	public void considersEmptyOptionalMethodParameterOptional() {
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithJdk8Optional(Optional.empty()))
+				.withSelfRel();
+
+		assertThat(link.isTemplated()).isTrue();
+		assertThat(link.getVariableNames(), contains("value"));
+	}
+
+	/**
+	 * @see #639
+	 */
+	@Test
+	public void considersOptionalWithValueMethodParameterOptional() {
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithJdk8Optional(Optional.of(1))).withSelfRel();
+
+		assertThat(link.isTemplated()).isFalse();
+		assertThat(link.getHref()).endsWith("?value=1");
+	}
+
+	/**
+	 * @see #617
+	 */
+	@Test
+	public void alternativePathVariableParameter() {
+
+		Link link = linkTo(methodOn(ControllerWithMethods.class).methodWithAlternatePathVariable("bar")).withSelfRel();
+		assertThat(link.getHref()).isEqualTo("http://localhost/something/bar/foo");
 	}
 
 	private static UriComponents toComponents(Link link) {
-		return UriComponentsBuilder.fromUriString(link.getHref()).build();
+		return UriComponentsBuilder.fromUriString(link.expand().getHref()).build();
 	}
 
 	static class Person implements Identifiable<Long> {
@@ -482,8 +599,8 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 		Long id;
 
 		@Override
-		public Long getId() {
-			return id;
+		public Optional<Long> getId() {
+			return Optional.ofNullable(id);
 		}
 	}
 
@@ -529,7 +646,7 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 		}
 
 		@RequestMapping(value = "/{id}/foo")
-		HttpEntity<Void> methodForNextPage(@PathVariable String id, @RequestParam Integer offset,
+		HttpEntity<Void> methodForNextPage(@PathVariable String id, @RequestParam(required = false) Integer offset,
 				@RequestParam Integer limit) {
 			return null;
 		}
@@ -540,6 +657,11 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 			return null;
 		}
 
+		@RequestMapping(value = "/{id}/foo")
+		HttpEntity<Void> methodWithAlternatePathVariable(@PathVariable(name = "id") String otherId) {
+			return null;
+		}
+
 		@RequestMapping(value = "/foo")
 		HttpEntity<Void> methodForOptionalNextPage(@RequestParam(required = false) Integer offset) {
 			return null;
@@ -547,6 +669,11 @@ public class ControllerLinkBuilderUnitTest extends TestUtils {
 
 		@RequestMapping(value = "/bar")
 		HttpEntity<Void> methodForOptionalSizeWithDefaultValue(@RequestParam(defaultValue = "10") Integer size) {
+			return null;
+		}
+
+		@RequestMapping
+		HttpEntity<Void> methodWithJdk8Optional(@RequestParam Optional<Integer> value) {
 			return null;
 		}
 	}

@@ -15,12 +15,12 @@
  */
 package org.springframework.hateoas.mvc;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 import static org.springframework.hateoas.mvc.ControllerLinkBuilder.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,18 +54,20 @@ public class IdentifiableResourceAssemblerSupportUnitTest extends TestUtils {
 	public void createsInstanceWithSelfLinkToController() {
 
 		PersonResource resource = assembler.createResource(person);
-		Link link = resource.getLink(Link.REL_SELF);
+		Link link = resource.getRequiredLink(Link.REL_SELF);
 
-		assertThat(link, is(notNullValue()));
-		assertThat(resource.getLinks().size(), is(1));
+		assertThat(link).isNotNull();
+		assertThat(resource.getLinks()).hasSize(1);
 	}
 
 	@Test
 	public void usesAlternateIdIfGivenExplicitly() {
 
 		PersonResource resource = assembler.createResourceWithId(person.alternateId, person);
-		Link selfLink = resource.getId();
-		assertThat(selfLink.getHref(), endsWith("/people/id"));
+		Optional<Link> selfLink = resource.getId();
+
+		assertThat(selfLink.map(Link::getHref)) //
+				.hasValueSatisfying(it -> assertThat(it.endsWith("/people/id")));
 	}
 
 	@Test
@@ -73,8 +75,10 @@ public class IdentifiableResourceAssemblerSupportUnitTest extends TestUtils {
 
 		PersonResource resource = new PersonResourceAssembler(ParameterizedController.class).createResource(person, person,
 				"bar");
-		Link selfLink = resource.getId();
-		assertThat(selfLink.getHref(), endsWith("/people/10/bar/addresses/10"));
+		Optional<Link> selfLink = resource.getId();
+
+		assertThat(selfLink.map(Link::getHref)) //
+				.hasValueSatisfying(it -> assertThat(it.endsWith("/people/id")));
 	}
 
 	@Test
@@ -95,8 +99,8 @@ public class IdentifiableResourceAssemblerSupportUnitTest extends TestUtils {
 		PersonResource secondResource = new PersonResource();
 		secondResource.add(builder.slash(1L).withSelfRel());
 
-		assertThat(result.size(), is(2));
-		assertThat(result, hasItems(firstResource, secondResource));
+		assertThat(result).hasSize(2);
+		assertThat(result).contains(firstResource, secondResource);
 	}
 
 	@RequestMapping("/people")
@@ -115,8 +119,8 @@ public class IdentifiableResourceAssemblerSupportUnitTest extends TestUtils {
 		String alternateId;
 
 		@Override
-		public Long getId() {
-			return id;
+		public Optional<Long> getId() {
+			return Optional.ofNullable(id);
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@ package org.springframework.hateoas.mvc;
 
 import static org.springframework.hateoas.mvc.ControllerLinkBuilder.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import org.springframework.hateoas.Identifiable;
 import org.springframework.hateoas.ResourceAssembler;
@@ -66,8 +64,8 @@ public abstract class IdentifiableResourceAssemblerSupport<T extends Identifiabl
 	@Override
 	protected D createResourceWithId(Object id, T entity, Object... parameters) {
 
-		Assert.notNull(entity);
-		Assert.notNull(id);
+		Assert.notNull(entity, "Entity must not be null!");
+		Assert.notNull(id, "Id must not be null!");
 
 		D instance = instantiateResource(entity);
 		instance.add(linkTo(controllerClass, unwrapIdentifyables(parameters)).slash(id).withSelfRel());
@@ -82,12 +80,8 @@ public abstract class IdentifiableResourceAssemblerSupport<T extends Identifiabl
 	 */
 	private Object[] unwrapIdentifyables(Object[] values) {
 
-		List<Object> result = new ArrayList<Object>(values.length);
-
-		for (Object element : Arrays.asList(values)) {
-			result.add(element instanceof Identifiable ? ((Identifiable<?>) element).getId() : element);
-		}
-
-		return result.toArray();
+		return Arrays.stream(values) //
+				.map(element -> element instanceof Identifiable ? ((Identifiable<?>) element).getId() : element) //
+				.toArray();
 	}
 }

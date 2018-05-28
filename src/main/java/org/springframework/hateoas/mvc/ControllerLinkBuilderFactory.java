@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2016 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,11 @@
  */
 package org.springframework.hateoas.mvc;
 
+import static org.springframework.hateoas.TemplateVariable.VariableType.*;
+import static org.springframework.hateoas.TemplateVariables.*;
+import static org.springframework.hateoas.core.EncodingUtils.*;
+import static org.springframework.web.util.UriComponents.UriTemplateVariables.*;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +33,8 @@ import java.util.Map;
 import org.springframework.core.MethodParameter;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.MethodLinkBuilderFactory;
+import org.springframework.hateoas.TemplateVariable;
+import org.springframework.hateoas.TemplateVariables;
 import org.springframework.hateoas.core.AnnotationAttribute;
 import org.springframework.hateoas.core.AnnotationMappingDiscoverer;
 import org.springframework.hateoas.core.DummyInvocationUtils.LastInvocationAware;
@@ -38,6 +45,7 @@ import org.springframework.hateoas.core.MethodParameters;
 import org.springframework.hateoas.mvc.AnnotatedParametersParameterAccessor.BoundMethodParameter;
 import org.springframework.util.Assert;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,6 +65,7 @@ import org.springframework.web.util.UriTemplate;
  * @author Oemer Yildiz
  * @author Kevin Conaway
  * @author Andrew Naydyonock
+ * @author Greg Turnquist
  */
 public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<ControllerLinkBuilder> {
 
@@ -129,29 +138,58 @@ public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<Co
 		Method method = invocation.getMethod();
 
 		String mapping = DISCOVERER.getMapping(invocation.getTargetType(), method);
+
 		UriComponentsBuilder builder = ControllerLinkBuilder.getBuilder().path(mapping);
 
 		UriTemplate template = new UriTemplate(mapping);
 		Map<String, Object> values = new HashMap<String, Object>();
-
 		Iterator<String> names = template.getVariableNames().iterator();
+
 		while (classMappingParameters.hasNext()) {
-			values.put(names.next(), classMappingParameters.next());
+			values.put(names.next(), encodePath(classMappingParameters.next()));
 		}
 
 		for (BoundMethodParameter parameter : PATH_VARIABLE_ACCESSOR.getBoundParameters(invocation)) {
-			values.put(parameter.getVariableName(), parameter.asString());
+			values.put(parameter.getVariableName(), encodePath(parameter.asString()));
 		}
 
+		List<String> optionalEmptyParameters = new ArrayList<String>();
+
 		for (BoundMethodParameter parameter : REQUEST_PARAM_ACCESSOR.getBoundParameters(invocation)) {
+
 			bindRequestParameters(builder, parameter);
+
+			if (SKIP_VALUE.equals(parameter.getValue())) {
+
+				values.put(parameter.getVariableName(), SKIP_VALUE);
+
+				if (!parameter.isRequired()) {
+					optionalEmptyParameters.add(parameter.getVariableName());
+				}
+			}
+		}
+
+		for (String variable : template.getVariableNames()) {
+			if (!values.containsKey(variable)) {
+				values.put(variable, SKIP_VALUE);
+			}
 		}
 
 		UriComponents components = applyUriComponentsContributer(builder, invocation).buildAndExpand(values);
-		return new ControllerLinkBuilder(components);
+		TemplateVariables variables = NONE;
+
+		for (String parameter : optionalEmptyParameters) {
+
+			boolean previousRequestParameter = components.getQueryParams().isEmpty() && variables.equals(NONE);
+			TemplateVariable variable = new TemplateVariable(parameter,
+					previousRequestParameter ? REQUEST_PARAM : REQUEST_PARAM_CONTINUED);
+			variables = variables.concat(variable);
+		}
+
+		return new ControllerLinkBuilder(components, variables, invocation);
 	}
 
-	/* 
+	/*
 	 * (non-Javadoc)
 	 * @see org.springframework.hateoas.MethodLinkBuilderFactory#linkTo(java.lang.reflect.Method, java.lang.Object[])
 	 */
@@ -159,6 +197,8 @@ public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<Co
 	public ControllerLinkBuilder linkTo(Method method, Object... parameters) {
 		return ControllerLinkBuilder.linkTo(method, parameters);
 	}
+
+
 
 	/**
 	 * Applies the configured {@link UriComponentsContributor}s to the given {@link UriComponentsBuilder}.
@@ -204,7 +244,7 @@ public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<Co
 
 			for (Map.Entry<String, List<String>> multiValueEntry : requestParams.entrySet()) {
 				for (String singleEntryValue : multiValueEntry.getValue()) {
-					builder.queryParam(multiValueEntry.getKey(), singleEntryValue);
+					builder.queryParam(multiValueEntry.getKey(), encodeParameter(singleEntryValue));
 				}
 			}
 
@@ -213,17 +253,23 @@ public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<Co
 			Map<String, String> requestParams = (Map<String, String>) value;
 
 			for (Map.Entry<String, String> requestParamEntry : requestParams.entrySet()) {
-				builder.queryParam(requestParamEntry.getKey(), requestParamEntry.getValue());
+				builder.queryParam(requestParamEntry.getKey(), encodeParameter(requestParamEntry.getValue()));
 			}
 
 		} else if (value instanceof Collection) {
 
 			for (Object element : (Collection<?>) value) {
-				builder.queryParam(key, element);
+				builder.queryParam(key, encodeParameter(element));
+			}
+
+		} else if (SKIP_VALUE.equals(value)) {
+
+			if (parameter.isRequired()) {
+				builder.queryParam(key, String.format("{%s}", parameter.getVariableName()));
 			}
 
 		} else {
-			builder.queryParam(key, parameter.asString());
+			builder.queryParam(key, encodeParameter(parameter.asString()));
 		}
 	}
 
@@ -241,14 +287,53 @@ public class ControllerLinkBuilderFactory implements MethodLinkBuilderFactory<Co
 
 		/* 
 		 * (non-Javadoc)
+		 * @see org.springframework.hateoas.mvc.AnnotatedParametersParameterAccessor#createParameter(org.springframework.core.MethodParameter, java.lang.Object, org.springframework.hateoas.core.AnnotationAttribute)
+		 */
+		@Override
+		protected BoundMethodParameter createParameter(final MethodParameter parameter, Object value,
+				AnnotationAttribute attribute) {
+
+			return new BoundMethodParameter(parameter, value, attribute) {
+
+				/* 
+				 * (non-Javadoc)
+				 * @see org.springframework.hateoas.mvc.AnnotatedParametersParameterAccessor.BoundMethodParameter#isRequired()
+				 */
+				@Override
+				public boolean isRequired() {
+
+					RequestParam annotation = parameter.getParameterAnnotation(RequestParam.class);
+
+					if (parameter.isOptional()) {
+						return false;
+					}
+
+					return annotation.required() //
+							&& annotation.defaultValue().equals(ValueConstants.DEFAULT_NONE);
+				}
+			};
+		}
+
+		/* 
+		 * (non-Javadoc)
 		 * @see org.springframework.hateoas.mvc.AnnotatedParametersParameterAccessor#verifyParameterValue(org.springframework.core.MethodParameter, java.lang.Object)
 		 */
 		@Override
 		protected Object verifyParameterValue(MethodParameter parameter, Object value) {
 
 			RequestParam annotation = parameter.getParameterAnnotation(RequestParam.class);
-			return annotation.required() && annotation.defaultValue().equals(ValueConstants.DEFAULT_NONE)
-					? super.verifyParameterValue(parameter, value) : value;
+
+			value = ObjectUtils.unwrapOptional(value);
+
+			if (value != null) {
+				return value;
+			}
+
+			if (!annotation.required() || parameter.isOptional()) {
+				return SKIP_VALUE;
+			}
+
+			return annotation.defaultValue().equals(ValueConstants.DEFAULT_NONE) ? SKIP_VALUE : null;
 		}
 	}
 }

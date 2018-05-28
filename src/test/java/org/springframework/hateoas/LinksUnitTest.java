@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 package org.springframework.hateoas;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import org.junit.Test;
 import org.springframework.util.StringUtils;
@@ -27,39 +27,56 @@ import org.springframework.util.StringUtils;
  * Unit test for {@link Links}.
  * 
  * @author Oliver Gierke
+ * @author Greg Turnquist
  */
 public class LinksUnitTest {
 
 	static final String FIRST = "</something>;rel=\"foo\"";
 	static final String SECOND = "</somethingElse>;rel=\"bar\"";
 	static final String WITH_COMMA = "<http://localhost:8080/test?page=0&filter=foo,bar>;rel=\"foo\"";
+	static final String WITH_WHITESPACE = "</something>; rel=\"foo\"," + SECOND;
 
 	static final String LINKS = StringUtils.collectionToCommaDelimitedString(Arrays.asList(FIRST, SECOND));
 
+	static final String THIRD = "</something>;rel=\"foo\";hreflang=\"en\"";
+	static final String FOURTH = "</somethingElse>;rel=\"bar\";hreflang=\"de\"";
+
+	static final String LINKS2 = StringUtils.collectionToCommaDelimitedString(Arrays.asList(THIRD, FOURTH));
+
 	static final Links reference = new Links(new Link("/something", "foo"), new Link("/somethingElse", "bar"));
+	static final Links reference2 = new Links(new Link("/something", "foo").withHreflang("en"),
+			new Link("/somethingElse", "bar").withHreflang("de"));
 
 	@Test
 	public void parsesLinkHeaderLinks() {
 
-		assertThat(Links.valueOf(LINKS), is(reference));
-		assertThat(reference.toString(), is(LINKS));
+		assertThat(Links.valueOf(LINKS)).isEqualTo(reference);
+		assertThat(Links.valueOf(LINKS2)).isEqualTo(reference2);
+		assertThat(reference.toString()).isEqualTo(LINKS);
+		assertThat(reference2.toString()).isEqualTo(LINKS2);
 	}
 
 	@Test
 	public void skipsEmptyLinkElements() {
-		assertThat(Links.valueOf(LINKS + ",,,"), is(reference));
+		assertThat(Links.valueOf(LINKS + ",,,")).isEqualTo(reference);
+		assertThat(Links.valueOf(LINKS2 + ",,,")).isEqualTo(reference2);
 	}
 
 	@Test
 	public void returnsNullForNullOrEmptySource() {
 
-		assertThat(Links.valueOf(null), is(Links.NO_LINKS));
-		assertThat(Links.valueOf(""), is(Links.NO_LINKS));
+		assertThat(Links.valueOf(null)).isEqualTo(Links.NO_LINKS);
+		assertThat(Links.valueOf("")).isEqualTo(Links.NO_LINKS);
 	}
 
+	/**
+	 * @see #54
+	 * @see #100
+	 */
 	@Test
 	public void getSingleLinkByRel() {
-		assertThat(reference.getLink("bar"), is(new Link("/somethingElse", "bar")));
+		assertThat(reference.getLink("bar")).hasValue(new Link("/somethingElse", "bar"));
+		assertThat(reference2.getLink("bar")).hasValue(new Link("/somethingElse", "bar").withHreflang("de"));
 	}
 
 	/**
@@ -70,11 +87,19 @@ public class LinksUnitTest {
 
 		Link withComma = new Link("http://localhost:8080/test?page=0&filter=foo,bar", "foo");
 
-		assertThat(Links.valueOf(WITH_COMMA).getLink("foo"), is(withComma));
+		assertThat(Links.valueOf(WITH_COMMA).getLink("foo")).isEqualTo(Optional.of(withComma));
 
 		Links twoWithCommaInFirst = Links.valueOf(WITH_COMMA.concat(",").concat(SECOND));
 
-		assertThat(twoWithCommaInFirst.getLink("foo"), is(withComma));
-		assertThat(twoWithCommaInFirst.getLink("bar"), is(new Link("/somethingElse", "bar")));
+		assertThat(twoWithCommaInFirst.getLink("foo")).hasValue(withComma);
+		assertThat(twoWithCommaInFirst.getLink("bar")).hasValue(new Link("/somethingElse", "bar"));
+	}
+
+	/**
+	 * @see https://tools.ietf.org/html/rfc5988#section-5.5
+	 */
+	@Test
+	public void parsesLinksWithWhitespace() {
+		assertThat(Links.valueOf(WITH_WHITESPACE)).isEqualTo(reference);
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 the original author or authors.
+ * Copyright 2014-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package org.springframework.hateoas;
 
 import static org.springframework.hateoas.TemplateVariable.VariableType.*;
 
+import lombok.EqualsAndHashCode;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +26,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.hateoas.TemplateVariable.VariableType;
 import org.springframework.util.Assert;
@@ -33,9 +36,10 @@ import org.springframework.util.Assert;
  * 
  * @author Oliver Gierke
  */
+@EqualsAndHashCode
 public final class TemplateVariables implements Iterable<TemplateVariable>, Serializable {
 
-	public static TemplateVariables NONE = new TemplateVariables();
+	public static final TemplateVariables NONE = new TemplateVariables();
 	private static final long serialVersionUID = -7736592281223783079L;
 
 	private final List<TemplateVariable> variables;
@@ -78,14 +82,13 @@ public final class TemplateVariables implements Iterable<TemplateVariable>, Seri
 	 */
 	public TemplateVariables concat(Collection<TemplateVariable> variables) {
 
-		List<TemplateVariable> result = new ArrayList<TemplateVariable>(this.variables.size() + variables.size());
+		List<TemplateVariable> result = new ArrayList<>(this.variables.size() + variables.size());
 		result.addAll(this.variables);
 
-		for (TemplateVariable variable : variables) {
-			if (!containsEquivalentFor(variable)) {
-				result.add(variable);
-			}
-		}
+		List<TemplateVariable> filtered = variables.stream() //
+				.filter(variable -> !containsEquivalentFor(variable)).collect(Collectors.toList());
+
+		result.addAll(filtered);
 
 		return new TemplateVariables(result);
 	}
@@ -111,13 +114,8 @@ public final class TemplateVariables implements Iterable<TemplateVariable>, Seri
 
 	private boolean containsEquivalentFor(TemplateVariable candidate) {
 
-		for (TemplateVariable variable : this.variables) {
-			if (variable.isEquivalent(candidate)) {
-				return true;
-			}
-		}
-
-		return false;
+		return this.variables.stream() //
+				.anyMatch(variable -> variable.isEquivalent(candidate));
 	}
 
 	/* 
@@ -171,34 +169,5 @@ public final class TemplateVariables implements Iterable<TemplateVariable>, Seri
 		}
 
 		return builder.append("}").toString();
-	}
-
-	/* 
-	 * (non-Javadoc)
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
-	@Override
-	public boolean equals(Object obj) {
-
-		if (this == obj) {
-			return true;
-		}
-
-		if (!(obj instanceof TemplateVariables)) {
-			return false;
-		}
-
-		TemplateVariables that = (TemplateVariables) obj;
-
-		return this.variables.equals(that.variables);
-	}
-
-	/* 
-	 * (non-Javadoc)
-	 * @see java.lang.Object#hashCode()
-	 */
-	@Override
-	public int hashCode() {
-		return this.variables.hashCode();
 	}
 }

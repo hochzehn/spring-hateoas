@@ -15,7 +15,10 @@
  */
 package org.springframework.hateoas.mvc;
 
+import static org.assertj.core.api.Assertions.*;
+
 import org.junit.Test;
+import org.springframework.hateoas.Link;
 import org.springframework.hateoas.TestUtils;
 import org.springframework.hateoas.core.DummyInvocationUtils;
 import org.springframework.http.HttpEntity;
@@ -30,10 +33,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class DummyInvocationUtilsUnitTest extends TestUtils {
 
 	@Test
-	public void test() {
+	public void pathVariableWithDefaultParameter() {
 
-		ControllerLinkBuilder.linkTo(DummyInvocationUtils.methodOn(SampleController.class).someMethod(1L));
+		Link link = ControllerLinkBuilder.linkTo(DummyInvocationUtils.methodOn(SampleController.class).someMethod(1L))
+				.withSelfRel();
+		assertThat(link.getHref()).isEqualTo("http://localhost/sample/1/foo");
+	}
 
+	@Test
+	public void pathVariableWithNameParameter() {
+
+		Link link = ControllerLinkBuilder.linkTo(DummyInvocationUtils.methodOn(SampleController.class).someOtherMethod(2L))
+				.withSelfRel();
+		assertThat(link.getHref()).isEqualTo("http://localhost/sample/2/bar");
 	}
 
 	@RequestMapping("/sample")
@@ -41,7 +53,12 @@ public class DummyInvocationUtilsUnitTest extends TestUtils {
 
 		@RequestMapping("/{id}/foo")
 		HttpEntity<Void> someMethod(@PathVariable("id") Long id) {
-			return new ResponseEntity<Void>(HttpStatus.OK);
+			return new ResponseEntity<>(HttpStatus.OK);
+		}
+
+		@RequestMapping("/{otherName}/bar")
+		HttpEntity<Void> someOtherMethod(@PathVariable(name = "otherName") Long id) {
+			return new ResponseEntity<>(HttpStatus.OK);
 		}
 	}
 }

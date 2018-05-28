@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 package org.springframework.hateoas.hal;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -35,6 +34,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * Unit tests for {@link DefaultCurieProvider}.
  * 
  * @author Oliver Gierke
+ * @author Greg Turnquist
  */
 public class DefaultCurieProviderUnitTest {
 
@@ -69,17 +69,33 @@ public class DefaultCurieProviderUnitTest {
 
 	@Test
 	public void doesNotPrefixIanaRels() {
-		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com")), is("self"));
+		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com"))).isEqualTo("self");
 	}
 
 	@Test
 	public void prefixesNormalRels() {
-		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com", "book")), is("acme:book"));
+		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com", "book"))).isEqualTo("acme:book");
 	}
 
 	@Test
 	public void doesNotPrefixQualifiedRels() {
-		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com", "custom:rel")), is("custom:rel"));
+		assertThat(provider.getNamespacedRelFrom(new Link("http://amazon.com", "custom:rel"))).isEqualTo("custom:rel");
+	}
+
+	/**
+	 * @see #100
+	 */
+	@Test
+	public void prefixesNormalRelsThatHaveExtraRFC5988Attributes() {
+
+		Link link = new Link("http://amazon.com", "custom:rel") //
+				.withHreflang("en") //
+				.withTitle("the title") //
+				.withMedia("the media") //
+				.withType("the type") //
+				.withDeprecation("http://example.com/custom/deprecated");
+
+		assertThat(provider.getNamespacedRelFrom(link)).isEqualTo("custom:rel");
 	}
 
 	/**
@@ -87,7 +103,7 @@ public class DefaultCurieProviderUnitTest {
 	 */
 	@Test
 	public void doesNotPrefixIanaRelsForRelAsString() {
-		assertThat(provider.getNamespacedRelFor("self"), is("self"));
+		assertThat(provider.getNamespacedRelFor("self")).isEqualTo("self");
 	}
 
 	/**
@@ -95,7 +111,7 @@ public class DefaultCurieProviderUnitTest {
 	 */
 	@Test
 	public void prefixesNormalRelsForRelAsString() {
-		assertThat(provider.getNamespacedRelFor("book"), is("acme:book"));
+		assertThat(provider.getNamespacedRelFor("book")).isEqualTo("acme:book");
 	}
 
 	/**
@@ -103,7 +119,7 @@ public class DefaultCurieProviderUnitTest {
 	 */
 	@Test
 	public void doesNotPrefixQualifiedRelsForRelAsString() {
-		assertThat(provider.getNamespacedRelFor("custom:rel"), is("custom:rel"));
+		assertThat(provider.getNamespacedRelFor("custom:rel")).isEqualTo("custom:rel");
 	}
 
 	/**
@@ -114,8 +130,8 @@ public class DefaultCurieProviderUnitTest {
 
 		DefaultCurieProvider provider = new DefaultCurieProvider(getCuries());
 
-		assertThat(provider.getCurieInformation(new Links()), hasSize(2));
-		assertThat(provider.getNamespacedRelFor("some"), is("some"));
+		assertThat(provider.getCurieInformation(new Links())).hasSize(2);
+		assertThat(provider.getNamespacedRelFor("some")).isEqualTo("some");
 	}
 
 	/**
@@ -126,8 +142,8 @@ public class DefaultCurieProviderUnitTest {
 
 		DefaultCurieProvider provider = new DefaultCurieProvider(getCuries(), "foo");
 
-		assertThat(provider.getCurieInformation(new Links()), hasSize(2));
-		assertThat(provider.getNamespacedRelFor("some"), is("foo:some"));
+		assertThat(provider.getCurieInformation(new Links())).hasSize(2);
+		assertThat(provider.getNamespacedRelFor("some")).isEqualTo("foo:some");
 	}
 
 	/**
@@ -145,17 +161,16 @@ public class DefaultCurieProviderUnitTest {
 		Links links = new Links(new Link("http://localhost", "name:foo"));
 
 		Collection<? extends Object> curies = provider.getCurieInformation(links);
-		assertThat(curies, hasSize(1));
+		assertThat(curies).hasSize(1);
 
 		Object curie = curies.iterator().next();
-		assertThat(curie, is(instanceOf(Curie.class)));
-
-		assertThat(((Curie) curie).getHref(), startsWith("http://localhost"));
+		assertThat(curie).isInstanceOfSatisfying(Curie.class,
+				it -> assertThat(it.getHref()).startsWith("http://localhost"));
 	}
 
 	private static Map<String, UriTemplate> getCuries() {
 
-		Map<String, UriTemplate> curies = new HashMap<String, UriTemplate>(2);
+		Map<String, UriTemplate> curies = new HashMap<>(2);
 		curies.put("foo", new UriTemplate("/foo/{rel}"));
 		curies.put("bar", new UriTemplate("/bar/{rel}"));
 

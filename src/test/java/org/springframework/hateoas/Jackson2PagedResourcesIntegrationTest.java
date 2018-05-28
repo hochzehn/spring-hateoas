@@ -15,8 +15,8 @@
  */
 package org.springframework.hateoas;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import java.io.StringWriter;
@@ -66,7 +66,7 @@ public class Jackson2PagedResourcesIntegrationTest {
 		user.lastname = "Matthews";
 
 		PageMetadata metadata = new PagedResources.PageMetadata(1, 0, 2);
-		PagedResources<User> resources = new PagedResources<User>(Collections.singleton(user), metadata);
+		PagedResources<User> resources = new PagedResources<>(Collections.singleton(user), metadata);
 
 		Method method = Sample.class.getMethod("someMethod");
 		StringWriter writer = new StringWriter();
@@ -80,7 +80,7 @@ public class Jackson2PagedResourcesIntegrationTest {
 		ReflectionUtils.invokeMethod(SPRING_4_2_WRITE_METHOD, converter, resources, method.getGenericReturnType(),
 				MediaType.APPLICATION_JSON, outputMessage);
 
-		assertThat(writer.toString(), is(REFERENCE));
+		assertThat(writer.toString()).isEqualTo(REFERENCE);
 	}
 
 	interface Sample {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 the original author or authors.
+ * Copyright 2012-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,14 @@
  */
 package org.springframework.hateoas;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.experimental.Wither;
+
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,17 +39,24 @@ import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * Value object for links.
  * 
  * @author Oliver Gierke
+ * @author Greg Turnquist
  */
 @XmlType(name = "link", namespace = Link.ATOM_NAMESPACE)
-@JsonIgnoreProperties("templated")
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(value = "templated", ignoreUnknown = true)
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
+@Getter
+@EqualsAndHashCode(of = { "rel", "href", "hreflang", "media", "title", "deprecation", "affordances" })
 public class Link implements Serializable {
 
 	private static final long serialVersionUID = -9037755944661782121L;
+	private static final String URI_PATTERN = "(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]";
 
 	public static final String ATOM_NAMESPACE = "http://www.w3.org/2005/Atom";
 
@@ -52,9 +66,15 @@ public class Link implements Serializable {
 	public static final String REL_NEXT = "next";
 	public static final String REL_LAST = "last";
 
-	@XmlAttribute private String rel;
-	@XmlAttribute private String href;
-	@XmlTransient @JsonIgnore private UriTemplate template;
+	private @XmlAttribute @Wither String rel;
+	private @XmlAttribute @Wither String href;
+	private @XmlAttribute @Wither String hreflang;
+	private @XmlAttribute @Wither String media;
+	private @XmlAttribute @Wither String title;
+	private @XmlAttribute @Wither String type;
+	private @XmlAttribute @Wither String deprecation;
+	private @XmlTransient @JsonIgnore UriTemplate template;
+	private @XmlTransient @JsonIgnore List<Affordance> affordances;
 
 	/**
 	 * Creates a new link to the given URI with the self rel.
@@ -84,47 +104,38 @@ public class Link implements Serializable {
 	 */
 	public Link(UriTemplate template, String rel) {
 
-		Assert.notNull(template, "UriTempalte must not be null!");
+		Assert.notNull(template, "UriTemplate must not be null!");
 		Assert.hasText(rel, "Rel must not be null or empty!");
 
 		this.template = template;
 		this.href = template.toString();
 		this.rel = rel;
+		this.affordances = new ArrayList<Affordance>();
+	}
+
+	public Link(String href, String rel, List<Affordance> affordances) {
+
+		this(href, rel);
+
+		Assert.notNull(affordances, "affordances must not be null!");
+
+		this.affordances = affordances;
 	}
 
 	/**
 	 * Empty constructor required by the marshalling framework.
 	 */
 	protected Link() {
-
+		this.affordances = new ArrayList<Affordance>();
 	}
 
 	/**
-	 * Returns the actual URI the link is pointing to.
+	 * Returns safe copy of {@link Affordance}s.
 	 * 
 	 * @return
 	 */
-	public String getHref() {
-		return href;
-	}
-
-	/**
-	 * Returns the rel of the link.
-	 * 
-	 * @return
-	 */
-	public String getRel() {
-		return rel;
-	}
-
-	/**
-	 * Returns a {@link Link} pointing to the same URI but with the given relation.
-	 * 
-	 * @param rel must not be {@literal null} or empty.
-	 * @return
-	 */
-	public Link withRel(String rel) {
-		return new Link(href, rel);
+	public List<Affordance> getAffordances() {
+		return Collections.unmodifiableList(this.affordances);
 	}
 
 	/**
@@ -134,6 +145,50 @@ public class Link implements Serializable {
 	 */
 	public Link withSelfRel() {
 		return withRel(Link.REL_SELF);
+	}
+
+	/**
+	 * Create new {@link Link} with an additional {@link Affordance}.
+	 *
+	 * @param affordance must not be {@literal null}.
+	 * @return
+	 */
+	public Link andAffordance(Affordance affordance) {
+
+		Assert.notNull(affordance, "Affordance must not be null!");
+
+		List<Affordance> newAffordances = new ArrayList<Affordance>();
+		newAffordances.addAll(this.affordances);
+		newAffordances.add(affordance);
+
+		return withAffordances(newAffordances);
+	}
+
+	/**
+	 * Create new {@link Link} with additional {@link Affordance}s.
+	 * 
+	 * @param affordances must not be {@literal null}.
+	 * @return
+	 */
+	public Link andAffordances(List<Affordance> affordances) {
+
+		List<Affordance> newAffordances = new ArrayList<Affordance>();
+		newAffordances.addAll(this.affordances);
+		newAffordances.addAll(affordances);
+
+		return withAffordances(newAffordances);
+	}
+
+	/**
+	 * Creats a new {@link Link} with the given {@link Affordance}s.
+	 * 
+	 * @param affordances must not be {@literal null}.
+	 * @return
+	 */
+	public Link withAffordances(List<Affordance> affordances) {
+
+		return new Link(this.rel, this.href, this.hreflang, this.media, this.title, this.type, this.deprecation,
+				this.template, affordances);
 	}
 
 	/**
@@ -185,6 +240,19 @@ public class Link implements Serializable {
 		return new Link(getUriTemplate().expand(arguments).toString(), getRel());
 	}
 
+	/**
+	 * Returns whether the current {@link Link} has the given link relation.
+	 * 
+	 * @param rel must not be {@literal null} or empty.
+	 * @return
+	 */
+	public boolean hasRel(String rel) {
+
+		Assert.hasText(rel, "Link relation must not be null or empty!");
+
+		return this.rel.equals(rel);
+	}
+
 	private UriTemplate getUriTemplate() {
 
 		if (template == null) {
@@ -194,46 +262,36 @@ public class Link implements Serializable {
 		return template;
 	}
 
-	/* 
-	 * (non-Javadoc)
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
-	@Override
-	public boolean equals(Object obj) {
-
-		if (this == obj) {
-			return true;
-		}
-
-		if (!(obj instanceof Link)) {
-			return false;
-		}
-
-		Link that = (Link) obj;
-
-		return this.href.equals(that.href) && this.rel.equals(that.rel);
-	}
-
-	/* 
-	 * (non-Javadoc)
-	 * @see java.lang.Object#hashCode()
-	 */
-	@Override
-	public int hashCode() {
-
-		int result = 17;
-		result += 31 * href.hashCode();
-		result += 31 * rel.hashCode();
-		return result;
-	}
-
-	/* 
+	/*
 	 * (non-Javadoc)
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
-		return String.format("<%s>;rel=\"%s\"", href, rel);
+
+		String linkString = String.format("<%s>;rel=\"%s\"", href, rel);
+
+		if (hreflang != null) {
+			linkString += ";hreflang=\"" + hreflang + "\"";
+		}
+
+		if (media != null) {
+			linkString += ";media=\"" + media + "\"";
+		}
+
+		if (title != null) {
+			linkString += ";title=\"" + title + "\"";
+		}
+
+		if (type != null) {
+			linkString += ";type=\"" + type + "\"";
+		}
+
+		if (deprecation != null) {
+			linkString += ";deprecation=\"" + deprecation + "\"";
+		}
+
+		return linkString;
 	}
 
 	/**
@@ -262,7 +320,29 @@ public class Link implements Serializable {
 				throw new IllegalArgumentException("Link does not provide a rel attribute!");
 			}
 
-			return new Link(matcher.group(1), attributes.get("rel"));
+			Link link = new Link(matcher.group(1), attributes.get("rel"));
+
+			if (attributes.containsKey("hreflang")) {
+				link = link.withHreflang(attributes.get("hreflang"));
+			}
+
+			if (attributes.containsKey("media")) {
+				link = link.withMedia(attributes.get("media"));
+			}
+
+			if (attributes.containsKey("title")) {
+				link = link.withTitle(attributes.get("title"));
+			}
+
+			if (attributes.containsKey("type")) {
+				link = link.withType(attributes.get("type"));
+			}
+
+			if (attributes.containsKey("deprecation")) {
+				link = link.withDeprecation(attributes.get("deprecation"));
+			}
+
+			return link;
 
 		} else {
 			throw new IllegalArgumentException(String.format("Given link header %s is not RFC5988 compliant!", element));
@@ -282,7 +362,8 @@ public class Link implements Serializable {
 		}
 
 		Map<String, String> attributes = new HashMap<String, String>();
-		Pattern keyAndValue = Pattern.compile("(\\w+)=\\\"(\\p{Alnum}*)\"");
+		Pattern keyAndValue = Pattern
+				.compile("(\\w+)=\"(\\p{Lower}[\\p{Lower}\\p{Digit}\\.\\-\\s]*|" + URI_PATTERN + ")\"");
 		Matcher matcher = keyAndValue.matcher(source);
 
 		while (matcher.find()) {

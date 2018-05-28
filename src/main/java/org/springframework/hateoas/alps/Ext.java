@@ -18,17 +18,22 @@ package org.springframework.hateoas.alps;
 import lombok.Builder;
 import lombok.Value;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
 /**
  * A value object for an ALPS ext element.
  * 
  * @author Oliver Gierke
+ * @author Greg Turnquist
  * @since 0.15
  * @see http://alps.io/spec/#prop-ext
  */
 @Value
 @Builder
+@JsonPropertyOrder({"id", "href", "value"})
 public class Ext {
 
+	private final String id;
 	private final String href;
 	private final String value;
 }
